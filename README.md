@@ -5,14 +5,43 @@
 ```python
 #!/usr/bin/python3
 
-import sys, os
+import sys
+import os
+
+if len(sys.argv) <= 1:
+    print(f"Usage: {sys.argv[0]} BIN [LIBC] [HOST] [PORT]")
+    print(f"Examples:")
+    print(f"  {sys.argv[0]} ./chall")
+    print(f"  {sys.argv[0]} ./chall ./libc.so.6")
+    print(f"  {sys.argv[0]} ./chall 127.0.0.1 1337")
+    print(f"  {sys.argv[0]} ./chall ./libc.so.6 127.0.0.1 1337")
+    exit(1)
+
+bin_path = sys.argv[1]
+libc_path = None
+host = ""
+port = "0"
+
+if len(sys.argv) >= 4 and sys.argv[2].count(".") == 3 and sys.argv[3].isdigit():
+    host = sys.argv[2]
+    port = sys.argv[3]
+elif len(sys.argv) >= 5 and os.path.isfile(sys.argv[2]):
+    libc_path = sys.argv[2]
+    host = sys.argv[3]
+    port = sys.argv[4]
+elif len(sys.argv) >= 3 and os.path.isfile(sys.argv[2]):
+    libc_path = sys.argv[2]
+
+libc_line = f"libc = ELF('{libc_path}', checksec=False)" if libc_path else "# libc = ELF('', checksec=False)"
+
+remote_line = f'p = remote("{host}", int("{port}"))' if host and port else 'p = remote(" ", " ")'
 
 script = f'''#!/usr/bin/env python3
 
 from pwn import *
 
-# exe = ELF('', checksec=False)
-# libc = ELF('', checksec=False)
+exe = ELF('{bin_path}', checksec=False)
+{libc_line}
 context.binary = exe
 
 info = lambda msg: log.info(msg)
@@ -24,60 +53,45 @@ sn = lambda num, proc=None: proc.send(str(num).encode()) if proc else p.send(str
 sna = lambda msg, num, proc=None: proc.sendafter(msg, str(num).encode()) if proc else p.sendafter(msg, str(num).encode())
 sln = lambda num, proc=None: proc.sendline(str(num).encode()) if proc else p.sendline(str(num).encode())
 slna = lambda msg, num, proc=None: proc.sendlineafter(msg, str(num).encode()) if proc else p.sendlineafter(msg, str(num).encode())
+r      = lambda n=4096, proc=None: proc.recv(n) if proc else p.recv(n)
+rl     = lambda proc=None: proc.recvline() if proc else p.recvline()
+ru     = lambda delim=b'\n', proc=None: proc.recvuntil(delim) if proc else p.recvuntil(delim)
+ra     = lambda proc=None: proc.recvall() if proc else p.recvall()
 
 def GDB():
     if not args.REMOTE:
-        gdb.attach(p, gdbscript=\'\'\'
+        gdb.attach(p, gdbscript=\"\"\"
 
 
         
-        \'\'\')
+        \"\"\")
 
 if args.REMOTE:
-    p = remote("{'{HOST}'}", int("{'{PORT}'}"))
+    {remote_line}
 else:
-    {('p = process([exe.path])') if len(sys.argv) >= 2 else ("p = process([''])")}
+    p = process([exe.path])
 
 GDB()
 
-# Gud luk pwn !
+# Gud luk pwner !
+
+
 
 p.interactive()
 '''
 
-if os.path.exists('exploit.py'):
-    script = open('exploit.py', 'r').read()
-
-if len(sys.argv) <= 1:
-    print(f"Usage: {sys.argv[0]} BIN [LIBC] [HOST] [PORT]")
-    print(f"Example:")
-    print(f"    {sys.argv[0]} ./chall")
-    print(f"    {sys.argv[0]} ./chall ./libc.so.6")
-    print(f"    {sys.argv[0]} ./chall ./libc.so.6 127.0.0.1 1337")
-    exit(0)
-
-if len(sys.argv) > 1:
-    os.system('chmod +x ' + sys.argv[1])
-    script = script.replace("# exe = ELF('', checksec=False)", f"exe = ELF('{sys.argv[1]}', checksec=False)")
-
-if len(sys.argv) > 2:
-    os.system('chmod +x ' + sys.argv[2])
-    script = script.replace("# libc = ELF('', checksec=False)", f"libc = ELF('{sys.argv[2]}', checksec=False)")
-
-# Replace HOST and PORT placeholders
-if len(sys.argv) > 4:
-    host = sys.argv[3]
-    port = sys.argv[4]
-    script = script.replace("{'{HOST}'}", host)
-    script = script.replace("{'{PORT}'}", port)
+if not os.path.exists('exploit.py'):
+    with open('exploit.py', 'wt') as f:
+        f.write(script)
 else:
-    script = script.replace("{'{HOST}'}", "")
-    script = script.replace("{'{PORT}'}", "0")
-
-with open('exploit.py', 'wt') as f:
-    f.write(script)
+    print("[*] 'exploit.py' already exists, keeping existing version.")
 
 os.chmod('exploit.py', 0o755)
+os.system(f'chmod +x {bin_path}')
+if libc_path:
+    os.system(f'chmod +x {libc_path}')
+
 os.system('code . exploit.py')
+
 ```
 Sau đó copy file này vào /usr/local/bin và chmod+x là có thể sử dụng!
