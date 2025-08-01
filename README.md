@@ -55,7 +55,7 @@ sln = lambda num, proc=None: proc.sendline(str(num).encode()) if proc else p.sen
 slna = lambda msg, num, proc=None: proc.sendlineafter(msg, str(num).encode()) if proc else p.sendlineafter(msg, str(num).encode())
 r      = lambda n=4096, proc=None: proc.recv(n) if proc else p.recv(n)
 rl     = lambda proc=None: proc.recvline() if proc else p.recvline()
-ru     = lambda delim=b'\n', proc=None: proc.recvuntil(delim) if proc else p.recvuntil(delim)
+ru     = lambda delim=b'\\n', proc=None: proc.recvuntil(delim) if proc else p.recvuntil(delim)
 ra     = lambda proc=None: proc.recvall() if proc else p.recvall()
 
 def GDB():
