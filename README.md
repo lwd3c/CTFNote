@@ -13,8 +13,8 @@ if len(sys.argv) <= 1:
     print(f"Examples:")
     print(f"  {sys.argv[0]} ./chall")
     print(f"  {sys.argv[0]} ./chall ./libc.so.6")
-    print(f"  {sys.argv[0]} ./chall 127.0.0.1 1337")
-    print(f"  {sys.argv[0]} ./chall ./libc.so.6 127.0.0.1 1337")
+    print(f"  {sys.argv[0]} ./chall mercury.picoctf.net 33411")
+    print(f"  {sys.argv[0]} ./chall ./libc.so.6 mercury.picoctf.net 33411")
     exit(1)
 
 bin_path = sys.argv[1]
@@ -22,18 +22,19 @@ libc_path = None
 host = ""
 port = "0"
 
-if len(sys.argv) >= 4 and sys.argv[2].count(".") == 3 and sys.argv[3].isdigit():
-    host = sys.argv[2]
-    port = sys.argv[3]
-elif len(sys.argv) >= 5 and os.path.isfile(sys.argv[2]):
+if len(sys.argv) >= 5 and os.path.isfile(sys.argv[2]):
     libc_path = sys.argv[2]
     host = sys.argv[3]
     port = sys.argv[4]
+
+elif len(sys.argv) >= 4 and not os.path.isfile(sys.argv[2]):
+    host = sys.argv[2]
+    port = sys.argv[3]
+
 elif len(sys.argv) >= 3 and os.path.isfile(sys.argv[2]):
     libc_path = sys.argv[2]
 
 libc_line = f"libc = ELF('{libc_path}', checksec=False)" if libc_path else "# libc = ELF('', checksec=False)"
-
 remote_line = f'p = remote("{host}", int("{port}"))' if host and port else 'p = remote(" ", " ")'
 
 script = f'''#!/usr/bin/env python3
@@ -59,19 +60,17 @@ ru     = lambda delim=b'\\n', proc=None: proc.recvuntil(delim) if proc else p.re
 ra     = lambda proc=None: proc.recvall() if proc else p.recvall()
 
 def GDB():
-    if not args.REMOTE:
-        gdb.attach(p, gdbscript=\"\"\"
+    gdb.attach(p, gdbscript=\"\"\"
 
 
-        
         \"\"\")
 
 if args.REMOTE:
     {remote_line}
 else:
     p = process([exe.path])
-
-GDB()
+    if args.GDB:
+        GDB()
 
 # Gud luk pwner !
 
@@ -80,18 +79,29 @@ GDB()
 p.interactive()
 '''
 
-if not os.path.exists('exploit.py'):
-    with open('exploit.py', 'wt') as f:
-        f.write(script)
-else:
-    print("[*] 'exploit.py' already exists, keeping existing version.")
+filename = 'exploit.py'
+should_write = True
 
-os.chmod('exploit.py', 0o755)
+if os.path.exists(filename):
+    ans = input(f"[!] File '{filename}' already exists. Overwrite? (y/n): ").strip().lower()
+    if ans.lower() != 'y':
+        print("[*] Keeping existing file. Abort write.")
+        should_write = False
+
+if should_write:
+    with open(filename, 'wt') as f:
+        f.write(script)
+    os.chmod(filename, 0o755)
+    print(f"[+] Wrote {filename}")
+else:
+    print("[*] Skipped writing file.")
+
 os.system(f'chmod +x {bin_path}')
+
 if libc_path:
     os.system(f'chmod +x {libc_path}')
 
-os.system('code . exploit.py')
+os.system(f'code . {filename}')
 
 ```
 Sau đó copy file này vào /usr/local/bin và chmod+x là có thể sử dụng!
